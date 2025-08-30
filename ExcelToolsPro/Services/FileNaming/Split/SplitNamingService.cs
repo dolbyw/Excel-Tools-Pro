@@ -18,6 +18,12 @@ public class SplitNamingService : ISplitNamingService
     private readonly string _configFilePath;
     private NamingConfig? _cachedConfig;
     
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+    
     public SplitNamingService(
         SplitNamingEngine engine, 
         IVariableRegistry variableRegistry, 
@@ -51,7 +57,7 @@ public class SplitNamingService : ISplitNamingService
             // 添加文件扩展名
             if (!string.IsNullOrWhiteSpace(context.FileExtension))
             {
-                if (!context.FileExtension.StartsWith("."))
+                if (!context.FileExtension.StartsWith('.'))
                 {
                     fileName += "." + context.FileExtension;
                 }
@@ -200,10 +206,7 @@ public class SplitNamingService : ISplitNamingService
     
     public async Task SaveConfigAsync(NamingConfig config)
     {
-        if (config == null)
-        {
-            throw new ArgumentNullException(nameof(config));
-        }
+        ArgumentNullException.ThrowIfNull(config);
         
         try
         {
@@ -211,11 +214,7 @@ public class SplitNamingService : ISplitNamingService
             
             config.LastUpdated = DateTime.Now;
             
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            };
+            var options = JsonOptions;
             
             var json = JsonSerializer.Serialize(config, options);
             await File.WriteAllTextAsync(_configFilePath, json);
@@ -233,10 +232,7 @@ public class SplitNamingService : ISplitNamingService
     
     public async Task<NamingTemplate> CreateTemplateAsync(NamingTemplate template)
     {
-        if (template == null)
-        {
-            throw new ArgumentNullException(nameof(template));
-        }
+        ArgumentNullException.ThrowIfNull(template);
         
         try
         {
@@ -272,10 +268,7 @@ public class SplitNamingService : ISplitNamingService
     
     public async Task<NamingTemplate> UpdateTemplateAsync(NamingTemplate template)
     {
-        if (template == null)
-        {
-            throw new ArgumentNullException(nameof(template));
-        }
+        ArgumentNullException.ThrowIfNull(template);
         
         try
         {
@@ -325,7 +318,7 @@ public class SplitNamingService : ISplitNamingService
             var config = await GetConfigAsync();
             
             var template = config.Templates.FirstOrDefault(t => t.Id == templateId);
-            if (template == null)
+            if (template is null)
             {
                 return false;
             }
@@ -349,12 +342,12 @@ public class SplitNamingService : ISplitNamingService
         }
     }
     
-    public ValidationResult ValidateTemplate(NamingTemplate template)
+    public Models.ValidationResult ValidateTemplate(NamingTemplate template)
     {
         return _engine.ValidateTemplate(template);
     }
     
-    public ValidationResult ValidateFileName(string fileName)
+    public Models.ValidationResult ValidateFileName(string fileName)
     {
         return _engine.ValidateFileName(fileName);
     }
@@ -381,7 +374,7 @@ public class SplitNamingService : ISplitNamingService
             var fileName = baseName;
             if (!string.IsNullOrWhiteSpace(extension))
             {
-                if (!extension.StartsWith("."))
+                if (!extension.StartsWith('.'))
                 {
                     fileName += "." + extension;
                 }
@@ -429,7 +422,7 @@ public class SplitNamingService : ISplitNamingService
     /// 创建默认配置
     /// </summary>
     /// <returns>默认配置</returns>
-    private NamingConfig CreateDefaultConfig()
+    private static NamingConfig CreateDefaultConfig()
     {
         var defaultTemplate = new NamingTemplate
         {
@@ -438,19 +431,19 @@ public class SplitNamingService : ISplitNamingService
             Description = "默认的文件拆分命名模板",
             Mode = NamingMode.Split,
             IsDefault = true,
-            Components = new List<NamingComponent>
-            {
+            Components =
+            [
                 new VariableComponent { VariableId = "filename" },
                 new TextComponent { Text = "_part" },
                 new VariableComponent { VariableId = "index" }
-            }
+            ]
         };
         
         return new NamingConfig
         {
             Mode = NamingMode.Split,
             DefaultTemplate = defaultTemplate,
-            Templates = new List<NamingTemplate> { defaultTemplate },
+            Templates = [defaultTemplate],
             GlobalSettings = new GlobalNamingSettings()
         };
     }

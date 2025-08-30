@@ -1,10 +1,12 @@
 using ExcelToolsPro.Services.FileNaming.Core;
 using ExcelToolsPro.Services.FileNaming.Models;
 using Microsoft.Extensions.Logging;
-using System.Text;
-using System.Text.RegularExpressions;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace ExcelToolsPro.Services.FileNaming.Split;
 
@@ -13,8 +15,8 @@ namespace ExcelToolsPro.Services.FileNaming.Split;
 /// </summary>
 public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogger<SplitNamingEngine> logger) : INamingEngine
 {
-    private readonly IVariableRegistry _variableRegistry = ArgumentNullException.ThrowIfNull(variableRegistry);
-    private readonly ILogger<SplitNamingEngine> _logger = ArgumentNullException.ThrowIfNull(logger);
+    private readonly IVariableRegistry _variableRegistry = variableRegistry ?? throw new ArgumentNullException(nameof(variableRegistry));
+    private readonly ILogger<SplitNamingEngine> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     private static readonly char[] InvalidFileNameChars = Path.GetInvalidFileNameChars();
     
     [GeneratedRegex("_{2,}")]
@@ -168,7 +170,7 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
     /// </summary>
     /// <param name="template">命名模板</param>
     /// <returns>验证结果</returns>
-    public ValidationResult ValidateTemplate(NamingTemplate template)
+    public Models.ValidationResult ValidateTemplate(NamingTemplate template)
     {
         var errors = new List<string>();
         var warnings = new List<string>();
@@ -178,7 +180,7 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
             if (template == null)
             {
                 errors.Add("模板不能为空");
-                return new ValidationResult { IsValid = false, Errors = errors };
+                return new Models.ValidationResult { IsValid = false, Errors = errors };
             }
             
             if (string.IsNullOrWhiteSpace(template.Id))
@@ -208,7 +210,7 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
                 // 检查是否包含文件名变量
                 var hasFileNameVariable = template.Components
                     .OfType<VariableComponent>()
-                    .Count(vc => vc.VariableId == "filename") > 0;
+                    .Any(vc => vc.VariableId == "filename");
                     
                 if (!hasFileNameVariable)
                 {
@@ -216,7 +218,7 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
                 }
             }
             
-            return new ValidationResult 
+            return new Models.ValidationResult 
             { 
                 IsValid = errors.Count == 0, 
                 Errors = errors, 
@@ -227,7 +229,7 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
         {
             _logger.LogError(ex, "验证模板时发生错误: {TemplateId}", template?.Id);
             errors.Add($"验证过程中发生错误: {ex.Message}");
-            return new ValidationResult { IsValid = false, Errors = errors };
+            return new Models.ValidationResult { IsValid = false, Errors = errors };
         }
     }
     
@@ -280,7 +282,7 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
     /// </summary>
     /// <param name="fileName">文件名</param>
     /// <returns>验证结果</returns>
-    public ValidationResult ValidateFileName(string fileName)
+    public Models.ValidationResult ValidateFileName(string fileName)
     {
         var errors = new List<string>();
         var warnings = new List<string>();
@@ -290,7 +292,7 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
             if (string.IsNullOrWhiteSpace(fileName))
             {
                 errors.Add("文件名不能为空");
-                return new ValidationResult { IsValid = false, Errors = errors };
+                return new Models.ValidationResult { IsValid = false, Errors = errors };
             }
             
             // 检查非法字符
@@ -320,7 +322,7 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
                 warnings.Add("文件名以点开头或结尾可能在某些系统上造成问题");
             }
             
-            return new ValidationResult 
+            return new Models.ValidationResult 
             { 
                 IsValid = errors.Count == 0, 
                 Errors = errors, 
@@ -331,7 +333,7 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
         {
             _logger.LogError(ex, "验证文件名时发生错误: {FileName}", fileName);
             errors.Add($"验证过程中发生错误: {ex.Message}");
-            return new ValidationResult { IsValid = false, Errors = errors };
+            return new Models.ValidationResult { IsValid = false, Errors = errors };
         }
     }
 }
