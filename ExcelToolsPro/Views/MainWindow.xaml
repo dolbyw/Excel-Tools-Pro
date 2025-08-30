@@ -1,0 +1,335 @@
+<Window x:Class="ExcelToolsPro.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        Title="" MinHeight="600" MinWidth="700"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResizeWithGrip"
+        Background="#F3F2F1"
+        WindowStyle="SingleBorderWindow"
+        ShowInTaskbar="True"
+        Icon="{x:Null}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        
+        <!-- 简化的标题栏 -->
+        <Border Grid.Row="0" Background="#F8F9FA" Height="40" BorderBrush="#E9ECEF" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="12,0" VerticalAlignment="Center">
+                <!-- 应用图标 -->
+                <Border Background="#0078D4" CornerRadius="4" Width="24" Height="24" Margin="0,0,8,0">
+                    <TextBlock Text="📊" FontSize="14" Foreground="White" 
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <!-- 应用名称 -->
+                <TextBlock Text="Excel Tools Pro" FontSize="15" FontWeight="SemiBold" 
+                          Foreground="#2C3E50" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+        
+        <!-- 主内容区域 -->
+         <Grid Grid.Row="1" Margin="12,8">
+             <Grid.ColumnDefinitions>
+                 <ColumnDefinition Width="400" />
+                 <ColumnDefinition Width="*" />
+             </Grid.ColumnDefinitions>
+             
+             <!-- 左侧：文件操作区域卡片，移除阴影，改为描边 -->
+             <Border Grid.Column="0" Background="White" CornerRadius="8" 
+                     Padding="16" Margin="0,0,12,0"
+                     BorderBrush="#E5E7EB" BorderThickness="1">
+                
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    
+                    <!-- 文件选择标题 -->
+                     <TextBlock Grid.Row="0" Text="文件选择" FontSize="16" FontWeight="SemiBold" 
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" 
+                               Margin="0,0,0,12" />
+                    
+                    <!-- 文件拖拽区域和文件列表 -->
+                     <Border Grid.Row="1" BorderBrush="#E1E5E9" BorderThickness="1" 
+                             Background="#FAFBFC" CornerRadius="6" Padding="8" 
+                             Margin="0,4,0,0" MinHeight="150"
+                            AllowDrop="True" 
+                            Drop="OnFileDrop" 
+                            DragOver="OnDragOver">
+                        <Grid>
+                            <!-- 空状态提示 -->
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Visibility="{Binding HasFiles, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                <TextBlock Text="📁" FontSize="32" 
+                                          Foreground="#0078D4" 
+                                          HorizontalAlignment="Center" Margin="0,0,0,8" />
+                                <TextBlock Text="拖拽Excel文件到此处" 
+                                          FontSize="13" Foreground="#424242" FontWeight="Medium"
+                                          HorizontalAlignment="Center" Margin="0,0,0,4" />
+                                <TextBlock Text="或点击下方按钮选择文件" 
+                                          FontSize="12" Foreground="#757575" 
+                                          HorizontalAlignment="Center" />
+                            </StackPanel>
+                            
+                            <!-- 虚拟化文件列表 -->
+                            <ListView ItemsSource="{Binding SelectedFiles}" 
+                                     Background="Transparent" BorderThickness="0"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     VirtualizingPanel.IsVirtualizing="True"
+                                     VirtualizingPanel.VirtualizationMode="Recycling"
+                                     VirtualizingPanel.ScrollUnit="Pixel"
+                                     Visibility="{Binding HasFiles, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ListView.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <VirtualizingStackPanel />
+                                    </ItemsPanelTemplate>
+                                </ListView.ItemsPanel>
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="White" CornerRadius="4" Padding="12,8" Margin="0,2"
+                                               BorderBrush="#E0E0E0" BorderThickness="1">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                
+                                                <!-- 文件图标 -->
+                                                <TextBlock Grid.Column="0" Text="📄" FontSize="16" 
+                                                          VerticalAlignment="Center" Margin="0,0,8,0" />
+                                                
+                                                <!-- 文件信息：加入省略号与完整名称提示 -->
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="Medium" 
+                                                              FontSize="14" Foreground="#333333"
+                                                              TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                                              ToolTip="{Binding Name}" />
+                                                    <TextBlock FontSize="12" Foreground="#666666">
+                                                        <Run Text="{Binding Size, StringFormat=N0}" /> <Run Text=" 字节" />
+                                                        <Run Text=" • " />
+                                                        <Run Text="{Binding LastModified, StringFormat='yyyy-MM-dd HH:mm'}" />
+                                                    </TextBlock>
+                                                </StackPanel>
+                                                
+                                                <!-- 文件状态 -->
+                                                <Border Grid.Column="2" Background="#E8F5E8" CornerRadius="12" 
+                                                       Padding="8,4" Margin="8,0" VerticalAlignment="Center"
+                                                       Visibility="{Binding IsValid, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <TextBlock Text="✓ 有效" FontSize="12" Foreground="#107C10" />
+                                                </Border>
+                                                
+                                                <!-- 删除按钮：使用图标 -->
+                                                <ui:Button Grid.Column="3" Icon="{ui:SymbolIcon Delete24}" 
+                                                       Appearance="Transparent"
+                                                       Width="24" Height="24"
+                                                       ToolTip="移除文件" Cursor="Hand"
+                                                       Command="{Binding DataContext.RemoveFileCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                       CommandParameter="{Binding}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- 文件操作按钮：统一风格 -->
+                     <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
+                         <ui:Button Content="📂 选择文件" 
+                                   Appearance="Primary" 
+                                   FontWeight="SemiBold" 
+                                   Height="36" Padding="16,6" 
+                                   Margin="0,0,8,0" 
+                                   Command="{Binding SelectFilesCommand}" />
+                         <ui:Button Content="🗑️ 清空列表" 
+                                    Appearance="Secondary"
+                                    Height="36" Padding="16,6"
+                                    Command="{Binding ClearFilesCommand}"
+                                    IsEnabled="{Binding HasFiles}" />
+                     </StackPanel>
+                    
+                    <!-- 操作类型选择：添加 GroupName 确保互斥与可达性 -->
+                     <StackPanel Grid.Row="3" Margin="0,16,0,0">
+                         <TextBlock Text="操作类型" FontSize="14" FontWeight="Medium" 
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" 
+                                   Margin="0,0,0,8" />
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton Content="合并文件" IsChecked="{Binding IsMergeMode}" 
+                                        FontSize="14" Margin="0,0,32,0" GroupName="OperationType" />
+                            <RadioButton Content="拆分文件" IsChecked="{Binding IsSplitMode}" 
+                                        FontSize="14" GroupName="OperationType" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 右侧：设置和操作区域 -->
+            <ScrollViewer Grid.Column="1" Margin="12,0,0,0" 
+                         VerticalScrollBarVisibility="Auto" 
+                         HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                <!-- 合并模式专用设置卡片，移除阴影改为描边 -->
+                <Border Background="White" CornerRadius="8" 
+                        Padding="12" Margin="0,0,0,8"
+                        Visibility="{Binding IsMergeMode, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        BorderBrush="#E5E7EB" BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock Text="合并设置" FontSize="15" FontWeight="SemiBold" 
+                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}" 
+                                  Margin="0,0,0,8" />
+                        
+                        <CheckBox Content="表头去重" IsChecked="{Binding DedupeHeaders}" 
+                                 Margin="0,0,0,12" FontSize="13" 
+                                 ToolTip="合并时自动去除重复的表头行" />
+                        
+
+                        
+                        <TextBlock Text="输出目录" FontSize="14" FontWeight="Medium" 
+                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}" 
+                                  Margin="0,0,0,8" />
+                        <Border BorderBrush="#E5E7EB" BorderThickness="1" 
+                               CornerRadius="8" Background="#F9FAFB">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" BorderThickness="0" 
+                                        Background="Transparent" Padding="12,10" 
+                                        FontSize="14" 
+                                        Text="{Binding OutputPath, UpdateSourceTrigger=PropertyChanged}"
+                                        ToolTip="选择输出目录路径" />
+                                <ui:Button Grid.Column="1" Content="📁" 
+                                       Appearance="Primary"
+                                       Width="40" Height="36" 
+                                       FontSize="16" Cursor="Hand" 
+                                       Command="{Binding BrowseOutputPathCommand}"
+                                       ToolTip="选择输出目录" />
+                            </Grid>
+                        </Border>
+                     </StackPanel>
+                 </Border>
+                
+                <!-- 拆分模式专用设置卡片 -->
+                 <Border Background="White" CornerRadius="8" Padding="12" Margin="0,0,0,8"
+                         Visibility="{Binding IsSplitMode, Converter={StaticResource BooleanToVisibilityConverter}}"
+                         BorderBrush="#E5E7EB" BorderThickness="1">
+                     <StackPanel>
+                         <TextBlock Text="拆分设置" FontSize="15" FontWeight="SemiBold" 
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" 
+                                   Margin="0,0,0,8" />
+                         
+                         <CheckBox Content="自动添加表头" IsChecked="{Binding AutoAddHeader}" 
+                                  Margin="0,0,0,12" FontSize="13" 
+                                  ToolTip="拆分后的文件自动添加表头行" />
+ 
+
+ 
+                         <!-- 自定义分割行数 -->
+                         <StackPanel Margin="0,0,0,12">
+                             <TextBlock Text="自定义分割行数" FontSize="13" FontWeight="Medium" 
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" 
+                                       Margin="0,0,0,6" />
+                             <Grid>
+                                 <Grid.ColumnDefinitions>
+                                     <ColumnDefinition Width="*" />
+                                     <ColumnDefinition Width="Auto" />
+                                 </Grid.ColumnDefinitions>
+                                 <TextBox Grid.Column="0" Text="{Binding SplitRowCount}" 
+                                          FontSize="13" Height="30" Padding="8,4" />
+                                 <TextBlock Grid.Column="1" Text="行" VerticalAlignment="Center" 
+                                            Margin="8,0,0,0" FontSize="13" />
+                             </Grid>
+                         </StackPanel>
+ 
+                         <!-- 输出文件夹 -->
+                         <TextBlock Text="输出文件夹" FontSize="13" FontWeight="Medium" 
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" 
+                                   Margin="0,0,0,6" />
+                         <Grid>
+                             <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="*" />
+                                 <ColumnDefinition Width="Auto" />
+                             </Grid.ColumnDefinitions>
+                             <TextBox Grid.Column="0" Text="{Binding OutputFolder}" 
+                                      IsReadOnly="True" FontSize="13" Height="30" Padding="8,4" />
+                             <ui:Button Grid.Column="1" Command="{Binding SelectOutputFolderCommand}" 
+                                        Icon="{ui:SymbolIcon Folder24}" Height="30" Width="36" Margin="4,0,0,0" />
+                         </Grid>
+                     </StackPanel>
+                 </Border>
+                
+                <!-- 开始处理按钮 -->
+                 <ui:Button Command="{Binding StartCommand}" 
+                            Content="开始处理" Icon="{ui:SymbolIcon Play24}" 
+                            Appearance="Primary" 
+                            Height="38" FontSize="15" Margin="0,4,0,0" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+        
+        <!-- 状态栏 -->
+         <Border Grid.Row="2" Background="#F8FAFC" 
+                 BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" 
+                 Padding="12,6">
+             <Grid>
+                 <!-- 进度显示区域 -->
+                 <Grid Margin="0,0,0,6"
+                       Visibility="{Binding IsProcessing, Converter={StaticResource BooleanToVisibilityConverter}}">
+                     <Grid.ColumnDefinitions>
+                         <ColumnDefinition Width="Auto" />
+                         <ColumnDefinition Width="*" />
+                         <ColumnDefinition Width="Auto" />
+                     </Grid.ColumnDefinitions>
+                     
+                     <TextBlock Grid.Column="0" Text="{Binding ProgressText}" 
+                               FontSize="12" FontWeight="Medium" 
+                               Foreground="#475569" 
+                               VerticalAlignment="Center" 
+                               Margin="0,0,12,0" />
+                     
+                     <ProgressBar Grid.Column="1" Value="{Binding ProgressValue}" 
+                                 Height="6" VerticalAlignment="Center" 
+                                 Margin="0,0,12,0" />
+                     
+                     <ui:Button Grid.Column="2" Command="{Binding CancelCommand}" 
+                               Content="取消" Appearance="Secondary" 
+                               Height="24" Padding="8,0" FontSize="11" />
+                 </Grid>
+                 
+                 <!-- 状态信息区域 -->
+                 <Grid Visibility="{Binding IsProcessing, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                     <Grid.ColumnDefinitions>
+                         <ColumnDefinition Width="*" />
+                         <ColumnDefinition Width="Auto" />
+                         <ColumnDefinition Width="Auto" />
+                     </Grid.ColumnDefinitions>
+                     
+                     <TextBlock Grid.Column="0" Text="{Binding StatusText}" 
+                               FontSize="12" FontWeight="Medium" 
+                               Foreground="#475569" 
+                               VerticalAlignment="Center" />
+                     
+                     <TextBlock Grid.Column="1" Text="{Binding FileCountText}" 
+                               FontSize="12" Foreground="#64748B" 
+                               VerticalAlignment="Center" 
+                               Margin="12,0,0,0" />
+                     
+                     <TextBlock Grid.Column="2" Text="{Binding MemoryUsageText}" 
+                               FontSize="12" Foreground="#64748B" 
+                               VerticalAlignment="Center" 
+                               Margin="12,0,0,0" />
+                 </Grid>
+             </Grid>
+         </Border>
+    </Grid>
+</Window>
