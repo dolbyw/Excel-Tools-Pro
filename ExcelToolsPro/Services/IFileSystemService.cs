@@ -1,3 +1,6 @@
+using System.IO;
+using System.Text;
+
 namespace ExcelToolsPro.Services;
 
 /// <summary>
@@ -59,6 +62,41 @@ public interface IFileSystemService
     /// 清理临时文件
     /// </summary>
     Task CleanupTempFilesAsync(TimeSpan olderThan);
+
+    /// <summary>
+    /// 异步复制文件
+    /// </summary>
+    Task CopyFileAsync(string sourceFilePath, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 异步移动文件
+    /// </summary>
+    Task MoveFileAsync(string sourceFilePath, string destinationFilePath, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 异步读取文件内容
+    /// </summary>
+    Task<string> ReadAllTextAsync(string filePath, Encoding? encoding = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 异步写入文件内容
+    /// </summary>
+    Task WriteAllTextAsync(string filePath, string content, Encoding? encoding = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 异步读取文件字节
+    /// </summary>
+    Task<byte[]> ReadAllBytesAsync(string filePath, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 异步写入文件字节
+    /// </summary>
+    Task WriteAllBytesAsync(string filePath, byte[] bytes, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 创建异步文件流（用于大文件处理）
+    /// </summary>
+    Task<FileStream> CreateFileStreamAsync(string filePath, FileMode mode, FileAccess access, FileShare share = FileShare.Read, int bufferSize = 4096, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

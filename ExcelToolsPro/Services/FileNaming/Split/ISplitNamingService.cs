@@ -22,6 +22,15 @@ public interface ISplitNamingService
     Task<PreviewResult> PreviewFileNamesAsync(SplitNamingContext context);
     
     /// <summary>
+    /// 分页预览文件名
+    /// </summary>
+    /// <param name="context">命名上下文</param>
+    /// <param name="page">页码（从1开始）</param>
+    /// <param name="pageSize">每页大小</param>
+    /// <returns>分页预览结果</returns>
+    Task<PreviewResult> PreviewFileNamesPagedAsync(SplitNamingContext context, int page = 1, int pageSize = 500);
+    
+    /// <summary>
     /// 获取配置
     /// </summary>
     /// <returns>命名配置</returns>

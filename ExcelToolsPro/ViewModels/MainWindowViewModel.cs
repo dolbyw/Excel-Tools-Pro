@@ -78,6 +78,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _outputFolder = string.Empty;
     
+    [ObservableProperty]
+    private string _title = "Excel Tools Pro";
+    
     // 缓存支持的文件扩展名数组以避免重复创建
     private static readonly string[] SupportedFileExtensions = [".xlsx", ".xls", ".csv"];
     
@@ -126,8 +129,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         // 订阅文件集合变化事件
         SelectedFiles.CollectionChanged += OnFilesCollectionChanged;
         
-        // 设置默认输出路径
-        SetDefaultOutputPath();
+        // 设置默认输出路径 - 延迟到异步初始化阶段执行
+        // SetDefaultOutputPathAsync(); // 改为在InitializeAsync中调用
         
         // 记录关键属性的初始值用于调试
         _logger.LogDebug("ViewModel初始状态 - IsMergeMode: {IsMergeMode}, HasFiles: {HasFiles}, OutputPath: {OutputPath}", 
@@ -144,13 +147,24 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogCritical(ex, "在视图模型初始化期间发生致命错误，应用程序将关闭。");
-            // 在UI线程上显示错误消息
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            _logger.LogCritical(ex, "在视图模型初始化期间发生致命错误，尝试恢复而不是关闭应用程序。");
+            
+            // 尝试备用初始化而不是直接关闭应用程序
+            try
             {
-                System.Windows.MessageBox.Show($"应用程序初始化失败，即将退出: {ex.Message}", "致命错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                System.Windows.Application.Current.Shutdown();
-            });
+                await FallbackInitializationAsync().ConfigureAwait(false);
+                _logger.LogInformation("使用备用初始化成功恢复应用程序");
+            }
+            catch (Exception fallbackEx)
+            {
+                _logger.LogCritical(fallbackEx, "备用初始化也失败了，显示错误但不关闭应用程序");
+                
+                // 在UI线程上显示错误消息但不关闭应用程序
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    System.Windows.MessageBox.Show($"应用程序初始化失败，但将继续运行: {ex.Message}\n\n部分功能可能不可用。", "初始化错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                });
+            }
         }
     }
     
@@ -170,19 +184,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 LoadConfigurationAsync(cts.Token)
             };
             
-            await Task.WhenAll(tasks);
+            await Task.WhenAll(tasks).ConfigureAwait(false);
             
             _logger.LogInformation("主窗口视图模型异步初始化完成");
         }
         catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
         {
             _logger.LogWarning("主窗口视图模型初始化超时，使用默认配置");
-            await FallbackInitializationAsync();
+            await FallbackInitializationAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "主窗口视图模型异步初始化失败，尝试恢复");
-            await FallbackInitializationAsync();
+            await FallbackInitializationAsync().ConfigureAwait(false);
         }
     }
     
@@ -198,8 +212,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             
             if (!cancellationToken.IsCancellationRequested)
             {
-                _performanceService.MetricsUpdated += OnMetricsUpdated;
-                _performanceService.StartMonitoring();
+                // 使用异步方式订阅事件，避免UI线程阻塞
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    _performanceService.MetricsUpdated += OnMetricsUpdated;
+                    _performanceService.StartMonitoring();
+                }, System.Windows.Threading.DispatcherPriority.Background, cancellationToken);
+                
                 _logger.LogDebug("性能监控初始化完成");
             }
         }
@@ -224,7 +243,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             _logger.LogInformation("执行备用初始化流程");
             
-            // 设置默认配置
+            // 设置默认配置 - 使用异步方式避免UI线程阻塞
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 AddHeaders = true;
@@ -232,17 +251,22 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 AutoAddHeader = true;
                 SplitRowCount = 1000;
                 CustomSplitRowCount = 1000;
-                SetDefaultOutputPath();
                 StatusText = "初始化完成（使用默认配置）";
             });
+            
+            // 异步设置默认输出路径
+            await SetDefaultOutputPathAsync();
             
             _logger.LogInformation("备用初始化完成");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "备用初始化也失败了");
-            // 最后的保护措施
-            StatusText = "初始化失败，请重启应用程序";
+            // 最后的保护措施 - 使用异步方式
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                StatusText = "初始化失败，请重启应用程序";
+            });
         }
     }
 
@@ -258,7 +282,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     /// <summary>
     /// 设置默认输出路径
     /// </summary>
-    private void SetDefaultOutputPath()
+    private async Task SetDefaultOutputPathAsync()
     {
         try
         {
@@ -268,7 +292,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 var defaultDir = DefaultMergeOutputPath;
                 if (!Directory.Exists(defaultDir))
                 {
-                    Directory.CreateDirectory(defaultDir);
+                    await Task.Run(() => Directory.CreateDirectory(defaultDir));
                     _logger.LogInformation("创建默认输出目录: {Path}", defaultDir);
                 }
                 
@@ -282,7 +306,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 var defaultPath = DefaultSplitOutputPath;
                 if (!Directory.Exists(defaultPath))
                 {
-                    Directory.CreateDirectory(defaultPath);
+                    await Task.Run(() => Directory.CreateDirectory(defaultPath));
                     _logger.LogInformation("创建默认输出目录: {Path}", defaultPath);
                 }
                 
@@ -778,7 +802,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             
             var config = await _configService.GetConfigurationAsync(cancellationToken).ConfigureAwait(false);
             
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
                 AddHeaders = config.AddHeaders;
                 DedupeHeaders = config.DedupeHeaders;
@@ -787,7 +811,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 // 设置默认输出路径
                 if (string.IsNullOrWhiteSpace(config.LastOutputDirectory))
                 {
-                    SetDefaultOutputPath();
+                    await SetDefaultOutputPathAsync().ConfigureAwait(false);
                 }
                 else
                 {
@@ -808,16 +832,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             _logger.LogError(ex, "加载配置失败，使用默认配置");
             
-            SafeUpdateUI(() =>
+            await SafeUpdateUIAsync(async () =>
             {
                 AddHeaders = true;
                 DedupeHeaders = true;
                 AutoAddHeader = true;
                 CustomSplitRowCount = 1000;
                 SplitRowCount = 1000;
-                SetDefaultOutputPath();
+                await SetDefaultOutputPathAsync().ConfigureAwait(false);
                 StatusText = "配置加载失败，已使用默认配置";
-            }, "加载默认配置");
+            }, "加载默认配置").ConfigureAwait(false);
         }
     }
 
@@ -847,8 +871,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 AddHeaders = true;
             }
             
-            // 更新默认输出路径
-            SetDefaultOutputPath();
+            // 更新默认输出路径 - 使用异步操作避免UI线程阻塞
+            _ = Task.Run(async () =>
+            {
+                await SetDefaultOutputPathAsync();
+            });
             
             // 更新状态文本
             StatusText = value ? "已切换到合并模式" : "已切换到拆分模式";
@@ -1019,6 +1046,32 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "{OperationName} 操作失败", operationName);
+        }
+    }
+
+    /// <summary>
+    /// 安全执行UI更新操作（异步版本）
+    /// </summary>
+    private async Task SafeUpdateUIAsync(Func<Task> uiAction, string operationName = "UI更新")
+    {
+        try
+        {
+            if (System.Windows.Application.Current?.Dispatcher.CheckAccess() == true)
+            {
+                await uiAction().ConfigureAwait(false);
+            }
+            else
+            {
+                var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                if (dispatcher != null)
+                {
+                    await dispatcher.InvokeAsync(async () => await uiAction().ConfigureAwait(false));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "{Operation} 失败", operationName);
         }
     }
 

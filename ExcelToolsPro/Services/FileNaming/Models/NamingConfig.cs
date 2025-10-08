@@ -165,6 +165,41 @@ public class PreviewResult
     /// 预览项目列表
     /// </summary>
     public List<PreviewItem> Items { get; set; } = new();
+    
+    /// <summary>
+    /// 当前页码（从1开始）
+    /// </summary>
+    public int CurrentPage { get; set; } = 1;
+    
+    /// <summary>
+    /// 每页大小
+    /// </summary>
+    public int PageSize { get; set; } = 500;
+    
+    /// <summary>
+    /// 总页数
+    /// </summary>
+    public int TotalPages { get; set; } = 1;
+    
+    /// <summary>
+    /// 是否有下一页
+    /// </summary>
+    public bool HasNextPage => CurrentPage < TotalPages;
+    
+    /// <summary>
+    /// 是否有上一页
+    /// </summary>
+    public bool HasPreviousPage => CurrentPage > 1;
+    
+    /// <summary>
+    /// 是否被截断（总数超过最大预览限制）
+    /// </summary>
+    public bool IsTruncated { get; set; }
+    
+    /// <summary>
+    /// 截断消息
+    /// </summary>
+    public string TruncationMessage { get; set; } = string.Empty;
 }
 
 /// <summary>

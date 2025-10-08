@@ -18,6 +18,7 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
     private readonly IVariableRegistry _variableRegistry = variableRegistry ?? throw new ArgumentNullException(nameof(variableRegistry));
     private readonly ILogger<SplitNamingEngine> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     private static readonly char[] InvalidFileNameChars = Path.GetInvalidFileNameChars();
+    private static readonly string[] ReservedNames = { "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
     
     [GeneratedRegex("_{2,}")]
     private static partial Regex UnderscoreRegex();
@@ -48,8 +49,8 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
             
             var result = fileName.ToString();
             
-            // 清理非法字符
-            result = CleanFileName(result);
+            // 清理非法字符和处理保留名
+            result = SanitizeFileName(result);
             
             _logger.LogDebug("文件名生成完成: {FileName}", result);
             return result;
@@ -125,11 +126,11 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
     }
     
     /// <summary>
-    /// 清理文件名中的非法字符
+    /// 清理和规范化文件名
     /// </summary>
     /// <param name="fileName">原始文件名</param>
     /// <returns>清理后的文件名</returns>
-    private static string CleanFileName(string fileName)
+    private static string SanitizeFileName(string fileName)
     {
         if (string.IsNullOrWhiteSpace(fileName))
         {
@@ -147,8 +148,8 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
         // 移除连续的下划线
         cleaned = UnderscoreRegex().Replace(cleaned, "_");
         
-        // 移除开头和结尾的下划线和空格
-        cleaned = cleaned.Trim('_', ' ');
+        // 移除开头和结尾的下划线、空格和点
+        cleaned = cleaned.Trim('_', ' ', '.');
         
         // 确保文件名不为空
         if (string.IsNullOrWhiteSpace(cleaned))
@@ -156,13 +157,129 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
             cleaned = "unnamed";
         }
         
-        // 限制文件名长度
-        if (cleaned.Length > 200) // 为扩展名和路径留出空间
+        // 检查并处理Windows保留名
+        cleaned = HandleReservedNames(cleaned);
+        
+        // 限制文件名长度（为扩展名和路径留出空间）
+        if (cleaned.Length > 200)
         {
-            cleaned = cleaned[..200];
+            cleaned = cleaned[..200].TrimEnd('_', ' ', '.');
         }
         
         return cleaned;
+    }
+    
+    /// <summary>
+    /// 处理Windows保留文件名
+    /// </summary>
+    /// <param name="fileName">文件名</param>
+    /// <returns>处理后的文件名</returns>
+    private static string HandleReservedNames(string fileName)
+    {
+        var nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+        var extension = Path.GetExtension(fileName);
+        
+        if (ReservedNames.Contains(nameWithoutExtension.ToUpperInvariant()))
+        {
+            nameWithoutExtension += "_file";
+        }
+        
+        return string.IsNullOrEmpty(extension) ? nameWithoutExtension : nameWithoutExtension + extension;
+    }
+    
+    /// <summary>
+    /// 生成唯一文件名（处理冲突）
+    /// </summary>
+    /// <param name="baseName">基础文件名</param>
+    /// <param name="outputDirectory">输出目录</param>
+    /// <param name="extension">文件扩展名</param>
+    /// <param name="conflictStrategy">冲突处理策略</param>
+    /// <returns>唯一的文件名</returns>
+    public string GenerateUniqueFileName(string baseName, string outputDirectory, string extension, FileConflictStrategy conflictStrategy = FileConflictStrategy.AppendNumber)
+    {
+        if (string.IsNullOrWhiteSpace(baseName))
+        {
+            throw new ArgumentException("基础文件名不能为空", nameof(baseName));
+        }
+        
+        if (string.IsNullOrWhiteSpace(outputDirectory))
+        {
+            throw new ArgumentException("输出目录不能为空", nameof(outputDirectory));
+        }
+        
+        try
+        {
+            // 规范化基础文件名
+            var sanitizedBaseName = SanitizeFileName(baseName);
+            
+            // 确保扩展名格式正确
+            if (!string.IsNullOrWhiteSpace(extension) && !extension.StartsWith('.'))
+            {
+                extension = "." + extension;
+            }
+            
+            var fileName = sanitizedBaseName + extension;
+            var fullPath = Path.Combine(outputDirectory, fileName);
+            
+            // 如果文件不存在，直接返回
+            if (!File.Exists(fullPath))
+            {
+                return fileName;
+            }
+            
+            // 根据策略处理冲突
+            return conflictStrategy switch
+            {
+                FileConflictStrategy.Overwrite => fileName,
+                FileConflictStrategy.Skip => throw new InvalidOperationException($"文件已存在: {fileName}"),
+                FileConflictStrategy.AppendNumber => GenerateNumberedFileName(sanitizedBaseName, extension, outputDirectory),
+                FileConflictStrategy.AppendTimestamp => GenerateTimestampedFileName(sanitizedBaseName, extension, outputDirectory),
+                _ => throw new ArgumentException($"不支持的冲突策略: {conflictStrategy}", nameof(conflictStrategy))
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "生成唯一文件名时发生错误: {BaseName}", baseName);
+            throw;
+        }
+    }
+    
+    /// <summary>
+    /// 生成带数字后缀的文件名
+    /// </summary>
+    private static string GenerateNumberedFileName(string baseName, string extension, string outputDirectory)
+    {
+        for (int i = 1; i <= 9999; i++)
+        {
+            var numberedFileName = $"{baseName}_{i}{extension}";
+            var fullPath = Path.Combine(outputDirectory, numberedFileName);
+            
+            if (!File.Exists(fullPath))
+            {
+                return numberedFileName;
+            }
+        }
+        
+        throw new InvalidOperationException($"无法生成唯一文件名，已尝试9999个数字后缀: {baseName}");
+    }
+    
+    /// <summary>
+    /// 生成带时间戳后缀的文件名
+    /// </summary>
+    private static string GenerateTimestampedFileName(string baseName, string extension, string outputDirectory)
+    {
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var timestampedFileName = $"{baseName}_{timestamp}{extension}";
+        var fullPath = Path.Combine(outputDirectory, timestampedFileName);
+        
+        // 如果时间戳文件名仍然冲突，添加毫秒
+        if (File.Exists(fullPath))
+        {
+            var timestampWithMs = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
+            timestampedFileName = $"{baseName}_{timestampWithMs}{extension}";
+        }
+        
+        return timestampedFileName;
     }
     
     /// <summary>
@@ -309,9 +426,8 @@ public partial class SplitNamingEngine(IVariableRegistry variableRegistry, ILogg
             }
             
             // 检查保留名称
-            var reservedNames = new[] { "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
             var nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName).ToUpperInvariant();
-            if (reservedNames.Contains(nameWithoutExtension))
+            if (ReservedNames.Contains(nameWithoutExtension))
             {
                 errors.Add($"'{nameWithoutExtension}' 是系统保留名称，不能用作文件名");
             }

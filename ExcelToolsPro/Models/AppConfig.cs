@@ -13,6 +13,10 @@ public class AppConfig : INotifyPropertyChanged
     private string _outputFormat = "xlsx";
     private int _maxMemoryMB = 512;
     private int _concurrentTasks = 2;
+    private int _maxDegreeOfParallelism = Environment.ProcessorCount;
+    private int _progressThrottleMs = 100;
+    private bool _largeFileMode = false;
+    private int _largeFileSizeThresholdMB = 50;
     private string? _lastOutputDirectory;
     private bool _enableDarkMode = false;
     private string _language = "zh-CN";
@@ -24,6 +28,15 @@ public class AppConfig : INotifyPropertyChanged
     private string _mergeNamingTemplate = "{timestamp}_merged";
     private string _splitNamingTemplate = "{filename}_{index}";
     private bool _useCustomNaming = false;
+    private int _ioBufferSizeKB = 64;
+    private string _csvEncoding = "UTF-8";
+    private bool _csvIncludeBom = true;
+    private bool _useAsyncIO = true;
+    private int _previewPageSize = 500;
+    private int _maxPreviewItems = 2000;
+    private int _htmlParseTimeoutMs = 500;
+    private bool _enableHtmlParseOptimization = true;
+    private int _htmlContentMaxSizeKB = 1024;
 
     /// <summary>
     /// 是否自动添加表头
@@ -68,6 +81,42 @@ public class AppConfig : INotifyPropertyChanged
     {
         get => _concurrentTasks;
         set => SetProperty(ref _concurrentTasks, value);
+    }
+
+    /// <summary>
+    /// 最大并发度（1-16）
+    /// </summary>
+    public int MaxDegreeOfParallelism
+    {
+        get => _maxDegreeOfParallelism;
+        set => SetProperty(ref _maxDegreeOfParallelism, Math.Max(1, Math.Min(16, value)));
+    }
+
+    /// <summary>
+    /// 进度节流间隔（毫秒）
+    /// </summary>
+    public int ProgressThrottleMs
+    {
+        get => _progressThrottleMs;
+        set => SetProperty(ref _progressThrottleMs, Math.Max(50, Math.Min(1000, value)));
+    }
+
+    /// <summary>
+    /// 是否启用低内存模式
+    /// </summary>
+    public bool LargeFileMode
+    {
+        get => _largeFileMode;
+        set => SetProperty(ref _largeFileMode, value);
+    }
+
+    /// <summary>
+    /// 大文件阈值（MB），超过此值自动启用低内存模式
+    /// </summary>
+    public int LargeFileSizeThresholdMB
+    {
+        get => _largeFileSizeThresholdMB;
+        set => SetProperty(ref _largeFileSizeThresholdMB, Math.Max(10, Math.Min(1000, value)));
     }
 
     /// <summary>
@@ -167,6 +216,87 @@ public class AppConfig : INotifyPropertyChanged
     {
         get => _useCustomNaming;
         set => SetProperty(ref _useCustomNaming, value);
+    }
+
+    /// <summary>
+    /// I/O缓冲区大小（KB）
+    /// </summary>
+    public int IOBufferSizeKB
+    {
+        get => _ioBufferSizeKB;
+        set => SetProperty(ref _ioBufferSizeKB, Math.Max(4, Math.Min(1024, value)));
+    }
+
+    /// <summary>
+    /// CSV文件编码
+    /// </summary>
+    public string CsvEncoding
+    {
+        get => _csvEncoding;
+        set => SetProperty(ref _csvEncoding, value);
+    }
+
+    /// <summary>
+    /// CSV文件是否包含BOM
+    /// </summary>
+    public bool CsvIncludeBom
+    {
+        get => _csvIncludeBom;
+        set => SetProperty(ref _csvIncludeBom, value);
+    }
+
+    /// <summary>
+    /// 是否使用异步I/O
+    /// </summary>
+    public bool UseAsyncIO
+    {
+        get => _useAsyncIO;
+        set => SetProperty(ref _useAsyncIO, value);
+    }
+
+    /// <summary>
+    /// 预览分页大小
+    /// </summary>
+    public int PreviewPageSize
+    {
+        get => _previewPageSize;
+        set => SetProperty(ref _previewPageSize, Math.Max(50, Math.Min(1000, value)));
+    }
+
+    /// <summary>
+    /// 最大预览项目数
+    /// </summary>
+    public int MaxPreviewItems
+    {
+        get => _maxPreviewItems;
+        set => SetProperty(ref _maxPreviewItems, Math.Max(100, Math.Min(10000, value)));
+    }
+
+    /// <summary>
+    /// HTML解析超时时间（毫秒）
+    /// </summary>
+    public int HtmlParseTimeoutMs
+    {
+        get => _htmlParseTimeoutMs;
+        set => SetProperty(ref _htmlParseTimeoutMs, Math.Max(100, Math.Min(5000, value)));
+    }
+
+    /// <summary>
+    /// 是否启用HTML解析优化
+    /// </summary>
+    public bool EnableHtmlParseOptimization
+    {
+        get => _enableHtmlParseOptimization;
+        set => SetProperty(ref _enableHtmlParseOptimization, value);
+    }
+
+    /// <summary>
+    /// HTML内容最大处理大小（KB）
+    /// </summary>
+    public int HtmlContentMaxSizeKB
+    {
+        get => _htmlContentMaxSizeKB;
+        set => SetProperty(ref _htmlContentMaxSizeKB, Math.Max(64, Math.Min(10240, value)));
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

@@ -163,6 +163,9 @@ public partial class App : System.Windows.Application
             services.AddSingleton<IPerformanceMonitorService, PerformanceMonitorService>();
             Log.Debug("性能监控服务已注册");
             
+            services.AddSingleton<ILowMemoryProcessor, LowMemoryProcessor>();
+            Log.Debug("低内存处理器服务已注册");
+            
             // FileNaming服务
             services.AddSingleton<IVariableRegistry, VariableRegistry>();
             Log.Debug("变量注册表已注册");

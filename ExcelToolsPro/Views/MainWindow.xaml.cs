@@ -65,8 +65,8 @@ public partial class MainWindow : Window
         {
             _logger.LogInformation("主窗口已加载，开始初始化ViewModel...");
             
-            // 初始化ViewModel
-            await _viewModel.InitializeViewModelAsync();
+            // 初始化ViewModel - 使用ConfigureAwait(false)避免UI线程死锁
+            await _viewModel.InitializeViewModelAsync().ConfigureAwait(false);
             
             _logger.LogInformation("ViewModel初始化完成，耗时: {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
         }
@@ -82,7 +82,7 @@ public partial class MainWindow : Window
             
             if (result == System.Windows.MessageBoxResult.Yes)
             {
-                await TryRecoverFromInitializationError();
+                await TryRecoverFromInitializationError().ConfigureAwait(false);
             }
             else
             {
@@ -94,7 +94,7 @@ public partial class MainWindow : Window
             _logger.LogError(ex, "初始化ViewModel时发生错误，错误类型: {ExceptionType}, 耗时: {ElapsedMs}ms", 
                 ex.GetType().Name, stopwatch.ElapsedMilliseconds);
             
-            await HandleInitializationError(ex);
+            await HandleInitializationError(ex).ConfigureAwait(false);
         }
     }
 
@@ -276,6 +276,56 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnDragEnter(object sender, System.Windows.DragEventArgs e)
+    {
+        try
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+            
+            // 拖拽进入时的视觉反馈
+            if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop))
+            {
+                e.Effects = System.Windows.DragDropEffects.Copy;
+            }
+            else
+            {
+                e.Effects = System.Windows.DragDropEffects.None;
+            }
+            
+            e.Handled = true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "处理拖拽进入时发生错误，错误类型: {ExceptionType}", ex.GetType().Name);
+            e.Effects = System.Windows.DragDropEffects.None;
+            e.Handled = true;
+        }
+    }
+    
+    private void OnDragLeave(object sender, System.Windows.DragEventArgs e)
+    {
+        try
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+            
+            // 拖拽离开时的清理
+            e.Effects = System.Windows.DragDropEffects.None;
+            e.Handled = true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "处理拖拽离开时发生错误，错误类型: {ExceptionType}", ex.GetType().Name);
+            e.Effects = System.Windows.DragDropEffects.None;
+            e.Handled = true;
+        }
+    }
+    
     private void OnDragOver(object sender, System.Windows.DragEventArgs e)
     {
         try
@@ -559,10 +609,8 @@ public partial class MainWindow : Window
         {
             _logger.LogInformation("尝试从初始化错误中恢复...");
             
-            // 重置配置并重新初始化
-            // 这里可以添加具体的恢复逻辑
-            
-            await _viewModel.InitializeViewModelAsync();
+            // 重置配置并重新初始化 - 使用ConfigureAwait(false)避免UI线程死锁
+            await _viewModel.InitializeViewModelAsync().ConfigureAwait(false);
             
             _logger.LogInformation("初始化错误恢复成功");
         }
